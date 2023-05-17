@@ -430,6 +430,26 @@
               <FileType>1</FileType>
               <FilePath>.\TExaS.c</FilePath>
             </File>
+            <File>
+              <FileName>GPIO.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\GPIO.c</FilePath>
+            </File>
+            <File>
+              <FileName>GPIO_cnfg.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\GPIO_cnfg.c</FilePath>
+            </File>
+            <File>
+              <FileName>GPIO.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\GPIO.h</FilePath>
+            </File>
+            <File>
+              <FileName>GPIO_cnfg.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\GPIO_cnfg.h</FilePath>
+            </File>
           </Files>
         </Group>
       </Groups>

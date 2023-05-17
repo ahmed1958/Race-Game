@@ -1,0 +1,12 @@
+.\gpio_cnfg.o: GPIO_cnfg.c
+.\gpio_cnfg.o: GPIO.h
+.\gpio_cnfg.o: GPIO_cnfg.h
+.\gpio_cnfg.o: SS.h
+.\gpio_cnfg.o: C:\Keil\ARM\CMSIS\Include\core_cm4.h
+.\gpio_cnfg.o: C:\Keil\ARM\ARMCC\bin\..\include\stdint.h
+.\gpio_cnfg.o: C:\Keil\ARM\CMSIS\Include\core_cmInstr.h
+.\gpio_cnfg.o: C:\Keil\ARM\CMSIS\Include\core_cmFunc.h
+.\gpio_cnfg.o: C:\Keil\ARM\CMSIS\Include\core_cm4_simd.h
+.\gpio_cnfg.o: system_TM4C123.h
+.\gpio_cnfg.o: TM4C123GH6PM11.h
+.\gpio_cnfg.o: GPIO_cnfg.h

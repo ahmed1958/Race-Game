@@ -33,7 +33,7 @@ GPIO_pins_config_t PORTF_ARR[8]=
 		PIN_3,
 		OUTPUT,
 		GPIO,
-		PULL_DOWN,
+		PULL_UP,
 		DIGITAL},
 		
 		{GPIOF,
@@ -41,7 +41,7 @@ GPIO_pins_config_t PORTF_ARR[8]=
 		PIN_4,
 		INPUT,
 		GPIO,
-		PULL_UP,
+		PULL_DOWN,
 		DIGITAL},
 		
 		{GPIOF,

@@ -103,6 +103,14 @@
 #define GPIO_PORTF_AMSEL_R      (*((volatile unsigned long *)0x40025528))
 #define GPIO_PORTF_PCTL_R       (*((volatile unsigned long *)0x4002552C))
 #define SYSCTL_RCGC2_R          (*((volatile unsigned long *)0x400FE108))
+	
+
+
+// Collision macros
+#define DEAD (1)
+#define SAFE (0)
+#define WAITING (2)
+
 void UART_Init(void);
 volatile int adcData;
 unsigned char UART_InChar(void){
@@ -138,7 +146,7 @@ void WaitForInterrupt(void);  // low power mode
 void DisableInterrupts(void); // Disable interrupts
 void EnableInterrupts(void);  // Enable interrupts
 void Timer2_Init(unsigned long period);
-
+void game();
 
 unsigned long TimerCount;
 unsigned long Semaphore;
@@ -230,7 +238,7 @@ void SysTick_Init(void)
   NVIC_ST_CTRL_R = 0;               // disable SysTick during setup
   NVIC_ST_RELOAD_R =  23992399;      // reload value for 300ms  at 80MHz
   NVIC_ST_CURRENT_R = 0;            // clear current count
-  NVIC_ST_CTRL_R |= 0x07;           // enable SysTick with system clock
+ NVIC_ST_CTRL_R |= 0x07;           // enable SysTick with system clock
 }
 
 void Draw_Cars(){
@@ -243,18 +251,17 @@ void Draw_Cars(){
     Nokia5110_DisplayBuffer();
     Nokia5110_PrintBMP(x, carPos+26, rCar, 0);
     Nokia5110_DisplayBuffer();
-	
 }
 int flag=0;
+int game_state=SAFE;
 int yCheck;
 int lives=1;
-unsigned char xc,yc;
 int Check_Col(){
 	char message[100];
 	yCheck=carPos+(rCarHeight*3);
 	if((ypos<yCheck && ypos>carPos  )&& x>=60 && flag==0){
 			if(lives==1){
-					Nokia5110_Clear();
+				Nokia5110_Clear();
 				Nokia5110_SetCursor(1, 1);
 				Nokia5110_OutString("GAME OVER");
 				Nokia5110_SetCursor(1, 2);
@@ -262,51 +269,64 @@ int Check_Col(){
 				flag=1;
 				lives--;
 				Delay100ms(20);
-				return 1;
-			} else {
+				return DEAD;
+			} 
+			else {
 			Nokia5110_Clear();
 		  sprintf(message, "Ooooops!!   collosion!!  You got %d   Lives left ", --lives);
 				Nokia5110_Clear();
 				Nokia5110_OutString(message);
 				Delay100ms(20);
 			}
-			return 0;
 	}
-	return 0;
+	return SAFE;
 }
 void SysTick_Handler(void)
 {
-		if(Check_Col()==1){
-				return;
-		}
-		if(!flag){
-					Draw_Cars();
-		  if(x>=60){
-			carPos=(carPos+10)%30;
-		}
-				x=(x+3) % 62;
-	}
-
 	
+		if(Check_Col()==DEAD){
+			game_state=DEAD; //
+			   x=0;
+				return ;
+		}
+		Draw_Cars();
+		 if(x>=60){
+			carPos=(carPos+10)%30;
+			}
+			x=(x+3) % 62;	
 }
-int main(void){
-  TExaS_Init(SSI0_Real_Nokia5110_Scope);  // set system clock to 80 MHz
-  Random_Init(1);
-  ADC_Init();
-	Nokia5110_Init();
-	SysTick_Init();
-  Nokia5110_ClearBuffer();
-	Nokia5110_DisplayBuffer();      // draw buffer
-	PortF_Init();
-	EnableInterrupts();  // The grader uses interrupts
-  WaitForInterrupt();
+void interrupt_init(){
+	NVIC_PRI7_R = (NVIC_PRI7_R & 0xFF00FFFF) | 0x00000000; // priority 0
+	 NVIC_EN0_R = 0x40000000;      // (h) enable interrupt 30 in NVIC
+	GPIO_PORTF_IM_R |= 0x11;      // (f) arm interrupt on PF4
+	GPIO_PORTF_IS_R = 0x00;     // (d) PF4 is edge-sensitive
+  GPIO_PORTF_IBE_R = 0x00;    //     PF4 is not both edges
+  GPIO_PORTF_IEV_R = 0x00;    //     PF4 falling edge event
+  GPIO_PORTF_ICR_R = 0x11;      // (e) clear flag4
+}
 
+void GPIOPortF_Handler(){
+	NVIC_ST_CTRL_R = 0; 
+	if(GPIO_PORTF_RIS_R & (1 << 4))
+	 {
+    GPIO_PORTF_ICR_R = 0x10;	
+		  lives=1;
+		 	game_state=SAFE;
+			game();
+	 }
+
+}	
+
+void game()
+{
+	SysTick_Init();
 	while(1){
-			if(!flag){
-							Nokia5110_PrintBMP(68, ypos , rCar, 0);
-							Nokia5110_DisplayBuffer();
-							character = UART_InChar();
-							UART_OutChar(character); 
+	 if(game_state==SAFE){
+				Nokia5110_Clear();
+				Nokia5110_PrintBMP(68, ypos , rCar, 0);
+						Nokia5110_DisplayBuffer();
+							//character = UART_InChar();
+							//UART_OutChar(character); 
 						 if(character == 'a'){
 									ypos = ypos + 1;
 									if(ypos >=47) {	
@@ -321,21 +341,35 @@ int main(void){
 							}
 						Nokia5110_ClearBuffer();
 						Draw_Cars();
+						
 						}
-				else if(flag==1) {
-					Nokia5110_Clear();
-					Nokia5110_OutString("Press       The Button To Play Again :)");
-					flag=2;
-				} 
-				else{
-					
+					else{			 
+								Nokia5110_Clear();
+								Nokia5110_OutString("Press       The Button To Play Again :)");
+					}
 				}
 				
-				}
-		
 }
 
-
+extern GPIO_pins_config_t PORTF_ARR; 
+int main(void){
+  TExaS_Init(SSI0_Real_Nokia5110_Scope);  // set system clock to 80 MHz
+	EnableInterrupts();  
+	Game_init(&PORTF_ARR);
+	interrupt_init();
+  Random_Init(1);
+  ADC_Init();
+	Nokia5110_Init();
+  Nokia5110_ClearBuffer();
+	Nokia5110_DisplayBuffer();      // draw buffer
+			
+	Nokia5110_Clear();		
+	Nokia5110_OutString("Press       The Button If You Wanna Play :)");
+		
+	while(1){
+	}
+		
+}
 
 
 void PortF_Init(void){ volatile unsigned long delay;
@@ -350,6 +384,7 @@ void PortF_Init(void){ volatile unsigned long delay;
   GPIO_PORTF_PUR_R = 0x11;          // enable pullup resistors on PF4,PF0       
   GPIO_PORTF_DEN_R = 0x1F;          // 7) enable digital pins PF4-PF0        
 }
+
 void UART_Init(void){
 // as part of Lab 11, modify this program to use UART0 instead of UART1
 //                 switching from PC5,PC4 to PA1,PA0
