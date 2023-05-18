@@ -67,7 +67,7 @@
 // SSI0Tx        (DN,  pin 6) connected to PA5
 // SSI0Clk       (SCLK, pin 7) connected to PA2
 // back light    (LED, pin 8) not connected, consists of 4 white LEDs which draw ~80mA total
-
+#include "Timer.h"
 #include "GPIO.h"
 #include "GPIO_cnfg.h"
 #include "Nokia5110.h"
@@ -110,7 +110,7 @@
 #define DEAD (1)
 #define SAFE (0)
 #define WAITING (2)
-
+unsigned long ADC0_InSeq3(void);
 void UART_Init(void);
 volatile int adcData;
 unsigned char UART_InChar(void){
@@ -148,14 +148,14 @@ void EnableInterrupts(void);  // Enable interrupts
 void Timer2_Init(unsigned long period);
 void game();
 
-unsigned long TimerCount;
+unsigned int TimerCount=0;
 unsigned long Semaphore;
 void PortF_Init(void);
 long ypos = 28;
 
 unsigned long SW1,SW2;  // input from PF4,PF0
 char character;
-
+float ratio =0;
 
 // *************************** Images ***************************
 const unsigned char rCar[] ={
@@ -181,11 +181,11 @@ const unsigned char BigExplosion1[] = {
 
 // decleration of function 
 ////////////////////////////////////
-void ADC_Init(void){
+/*void ADC_Init(void){
 // we work on ADC 1 (IN VEDIO), sequencer 3 (One simple/ trigger) , PE1(AN2) "IN vedio also "	
  int delay;
 //Enable the ADC clock using the RCGCADC register 
-  SYSCTL_RCGCADC_R |= (1<<1); // Enable ADC module 1
+  SYSCTL_RCGCADC_R |= (1<<0); // Enable ADC module 1
 
 
 //Enable the clock to the appropriate GPIO modules via the RCGCGPIO register
@@ -193,13 +193,13 @@ void ADC_Init(void){
                    |(1<<5);
 	delay=SYSCTL_RCGCGPIO_R;
 //Set the GPIO AFSEL for PORT E --> enable alternative function PE1
-  GPIO_PORTE_AFSEL_R |= (1<<1);
+  GPIO_PORTE_AFSEL_R |= (1<<0);
 
 // Clear the GPIO_DEN register == Disable digital functionality for PE1
-   GPIO_PORTE_DEN_R &= ~(1<<1);
+   GPIO_PORTE_DEN_R &= ~(1<<0);
  
 // SET the GPIO_AMSEL Register == Enable analog functionality for PE1
-   GPIO_PORTE_AMSEL_R |= (1<<1);
+   GPIO_PORTE_AMSEL_R |= (1<<0);
 //------------------------------------------------------------config of sequencer------------------------------------
 //Sample Sequencer 3 is disabled.
 ADC1_ACTSS_R &= ~(1<<3);
@@ -216,12 +216,31 @@ ADC1_SSCTL3_R |= (1<< 1)// End bit must be set
 
 //Enable interrupt Mask for SS3 
 ADC1_IM_R |= (1<<3);
-
 ADC1_RIS_R |= (1<<3);
 ADC1_ACTSS_R |= (1<<3);
 NVIC_EN2_R |=(1<<3);
-}		
-
+}	*/	
+void ADC0_Init(void){ volatile unsigned long delay;
+  SYSCTL_RCGC2_R |= 0x00000010;   // 1) activate clock for Port E
+  delay = SYSCTL_RCGC2_R;         //    allow time for clock to stabilize
+  GPIO_PORTE_DIR_R &= ~0x04;      // 2) make PE2 input
+  GPIO_PORTE_AFSEL_R |= 0x04;     // 3) enable alternate function on PE2
+  GPIO_PORTE_DEN_R &= ~0x04;      // 4) disable digital I/O on PE2
+  GPIO_PORTE_AMSEL_R |= 0x04;     // 5) enable analog function on PE2
+  SYSCTL_RCGC0_R |= 0x00010000;   // 6) activate ADC0 
+  delay = SYSCTL_RCGC2_R;         
+  SYSCTL_RCGC0_R &= ~0x00000300;  // 7) configure for 125K 
+  ADC0_SSPRI_R = 0x0123;          // 8) Sequencer 3 is highest priority
+  ADC0_ACTSS_R &= ~0x0008;        // 9) disable sample sequencer 3
+  ADC0_EMUX_R &= ~0xF000;         // 10) seq3 is software trigger
+  ADC0_SSMUX3_R = (ADC0_SSMUX3_R&0xFFFFFFF0)+1; // 11) channel Ain1 (PE2)
+  ADC0_SSCTL3_R = 0x0006;         // 12) no TS0 D0, yes IE0 END0
+  ADC0_ACTSS_R |= 0x0008;         // 13) enable sample sequencer 3
+	ADC1_IM_R |= (1<<3);
+  ADC1_RIS_R |= (1<<3);
+  ADC1_ACTSS_R |= (1<<3);
+  NVIC_EN2_R |=(1<<3);
+}
 
 
 // draw opponent cars 
@@ -252,49 +271,67 @@ void Draw_Cars(){
     Nokia5110_PrintBMP(x, carPos+26, rCar, 0);
     Nokia5110_DisplayBuffer();
 }
-int flag=0;
 int game_state=SAFE;
 int yCheck;
-int lives=1;
+int lives=3;
+int status=0;
 int Check_Col(){
 	char message[100];
 	yCheck=carPos+(rCarHeight*3);
-	if((ypos<yCheck && ypos>carPos  )&& x>=60 && flag==0){
+	if((ypos<yCheck && ypos>carPos  )&& x>=58){
 			if(lives==1){
 				Nokia5110_Clear();
+				GPIO_write_pin(GPIOF,PIN_1,1);
 				Nokia5110_SetCursor(1, 1);
 				Nokia5110_OutString("GAME OVER");
 				Nokia5110_SetCursor(1, 2);
-				Nokia5110_OutString("Nice try,");
-				flag=1;
+				sprintf(message, "Nice try,your score is: %u",TimerCount);
+				Nokia5110_OutString(message);
 				lives--;
 				Delay100ms(20);
+				CLEAR_BIT_PERIPH_BAND(GPIOF->DATA,PIN_1);
 				return DEAD;
 			} 
 			else {
 			Nokia5110_Clear();
 		  sprintf(message, "Ooooops!!   collosion!!  You got %d   Lives left ", --lives);
+				GPIO_write_pin(GPIOF,PIN_1,1);
 				Nokia5110_Clear();
 				Nokia5110_OutString(message);
 				Delay100ms(20);
+				CLEAR_BIT_PERIPH_BAND(GPIOF->DATA,PIN_1);
+				 status=1;
 			}
 	}
 	return SAFE;
-}
-void SysTick_Handler(void)
-{
 	
-		if(Check_Col()==DEAD){
+}
+int ss=0;
+
+void Timer2A_Handler(void)
+{	
+	clear_Int(TIMER2,TIMERA);
+	TimerCount++;
+if(ss==1)
+{
+ if(status==0)
+ { 
+	if(Check_Col()==DEAD){
 			game_state=DEAD; //
 			   x=0;
-				return ;
+				return;
 		}
-		Draw_Cars();
+	}
+ else{
+   status=0; 
+ }
+		
 		 if(x>=60){
 			carPos=(carPos+10)%30;
 			}
-			x=(x+3) % 62;	
-}
+			x=(x+3) % 62;
+      Draw_Cars();			
+}}
 void interrupt_init(){
 	NVIC_PRI7_R = (NVIC_PRI7_R & 0xFF00FFFF) | 0x00000000; // priority 0
 	 NVIC_EN0_R = 0x40000000;      // (h) enable interrupt 30 in NVIC
@@ -304,73 +341,82 @@ void interrupt_init(){
   GPIO_PORTF_IEV_R = 0x00;    //     PF4 falling edge event
   GPIO_PORTF_ICR_R = 0x11;      // (e) clear flag4
 }
-
+extern Gpt_ConfigType Timer2;
 void GPIOPortF_Handler(){
 	NVIC_ST_CTRL_R = 0; 
 	if(GPIO_PORTF_RIS_R & (1 << 4))
 	 {
     GPIO_PORTF_ICR_R = 0x10;	
-		  lives=1;
 		 	game_state=SAFE;
-			game();
+		  lives=3;
+		 
+		  timer_init(&Timer2);
+      ss=1; 
 	 }
 
 }	
-
-void game()
-{
-	SysTick_Init();
-	while(1){
-	 if(game_state==SAFE){
-				Nokia5110_Clear();
-				Nokia5110_PrintBMP(68, ypos , rCar, 0);
-						Nokia5110_DisplayBuffer();
-							//character = UART_InChar();
-							//UART_OutChar(character); 
-						 if(character == 'a'){
-									ypos = ypos + 1;
-									if(ypos >=47) {	
-										ypos = 47;
-									}
-							}
-						else if(character== 'b'){
-									ypos = ypos - 1;
-									if(ypos <= 9) {
-											ypos = 9;
-									}
-							}
-						Nokia5110_ClearBuffer();
-						Draw_Cars();
-						
-						}
-					else{			 
-								Nokia5110_Clear();
-								Nokia5110_OutString("Press       The Button To Play Again :)");
-					}
-				}
-				
-}
-
 extern GPIO_pins_config_t PORTF_ARR; 
+
+
+
+
 int main(void){
   TExaS_Init(SSI0_Real_Nokia5110_Scope);  // set system clock to 80 MHz
 	EnableInterrupts();  
 	Game_init(&PORTF_ARR);
 	interrupt_init();
   Random_Init(1);
-  ADC_Init();
+  ADC0_Init();
 	Nokia5110_Init();
   Nokia5110_ClearBuffer();
 	Nokia5110_DisplayBuffer();      // draw buffer
 			
 	Nokia5110_Clear();		
 	Nokia5110_OutString("Press       The Button If You Wanna Play :)");
-		
-	while(1){
-	}
-		
-}
+ 
 
+	while(1)
+	{	
+	 if(ss==1)
+	 {
+    		 
+		if(game_state==SAFE){
+				//Nokia5110_Clear();
+			 	  Nokia5110_PrintBMP(68,ypos , rCar, 0); 
+			    Nokia5110_DisplayBuffer();
+			    adcData = ADC0_SSFIFO3_R&0xFFF;
+					adcData=ADC0_InSeq3();
+					ADC0_ISC_R = 0x0008; 
+				  ratio=((48 * ((float)(adcData)/(4095.0)))+12)/(48+12);
+			    ypos = ratio * 48;
+			    Nokia5110_PrintBMP(68,ypos , rCar, 0);
+			    WaitForInterrupt();	
+					Nokia5110_DisplayBuffer();
+       //							character = UART_InChar();
+							//UART_OutChar(character); 
+						// if(character == 'a'){
+								//	ypos = ypos + 1;
+									//if(ypos >=47) {	
+								//		ypos = 47;
+								//	}
+							//}
+						//else if(character== 'b'){
+							//		ypos = ypos - 1;
+								//	if(ypos <= 9) {
+								//			ypos = 9;
+								//	}
+							//}
+						//Nokia5110_ClearBuffer();
+						 		
+						}
+					else{			 
+								ss=0;
+						    Nokia5110_Clear();
+								Nokia5110_OutString("Press       The Button To Play Again :)");
+					}
+				}
+			}
+		}
 
 void PortF_Init(void){ volatile unsigned long delay;
   SYSCTL_RCGC2_R |= 0x00000020;     // 1) F clock
@@ -403,5 +449,12 @@ void UART_Init(void){
   GPIO_PORTA_AMSEL_R &= ~0x03;          // disable analog functionality on PA1,PA0
 }
 
-
+unsigned long ADC0_InSeq3(void){  
+	unsigned long result;
+  ADC0_PSSI_R = 0x0008;            // 1) initiate SS3
+  while((ADC0_RIS_R&0x08)==0){};   // 2) wait for conversion done
+  result = ADC0_SSFIFO3_R&0xFFF;   // 3) read result
+  ADC0_ISC_R = 0x0008;             // 4) acknowledge completion
+  return result;
+}
 
