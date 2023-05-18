@@ -221,6 +221,7 @@ ADC1_ACTSS_R |= (1<<3);
 NVIC_EN2_R |=(1<<3);
 }	*/	
 void ADC0_Init(void){ volatile unsigned long delay;
+	// work on ADC0 , SS3 ,PE2
   SYSCTL_RCGC2_R |= 0x00000010;   // 1) activate clock for Port E
   delay = SYSCTL_RCGC2_R;         //    allow time for clock to stabilize
   GPIO_PORTE_DIR_R &= ~0x04;      // 2) make PE2 input
@@ -236,6 +237,7 @@ void ADC0_Init(void){ volatile unsigned long delay;
   ADC0_SSMUX3_R = (ADC0_SSMUX3_R&0xFFFFFFF0)+1; // 11) channel Ain1 (PE2)
   ADC0_SSCTL3_R = 0x0006;         // 12) no TS0 D0, yes IE0 END0
   ADC0_ACTSS_R |= 0x0008;         // 13) enable sample sequencer 3
+	//Enable interrupt Mask for SS3
 	ADC1_IM_R |= (1<<3);
   ADC1_RIS_R |= (1<<3);
   ADC1_ACTSS_R |= (1<<3);
@@ -280,6 +282,9 @@ int Check_Col(){
 	yCheck=carPos+(rCarHeight*3);
 	if((ypos<yCheck && ypos>carPos  )&& x>=58){
 			if(lives==1){
+				Nokia5110_PrintBMP(60,ypos , BigExplosion1, 0);
+				Nokia5110_DisplayBuffer();
+				Delay100ms(5);
 				Nokia5110_Clear();
 				GPIO_write_pin(GPIOF,PIN_1,1);
 				Nokia5110_SetCursor(1, 1);
@@ -293,6 +298,9 @@ int Check_Col(){
 				return DEAD;
 			} 
 			else {
+				Nokia5110_PrintBMP(60,ypos , BigExplosion1, 0);
+				Nokia5110_DisplayBuffer();
+				Delay100ms(5);
 			Nokia5110_Clear();
 		  sprintf(message, "Ooooops!!   collosion!!  You got %d   Lives left ", --lives);
 				GPIO_write_pin(GPIOF,PIN_1,1);
