@@ -359,9 +359,6 @@ int main(void){
     		 
 		if(game_state==SAFE){
 				//Nokia5110_Clear();
-			 	   
-			    Nokia5110_PrintBMP(68,ypos , rCar, 0); 
-			    Nokia5110_DisplayBuffer();
 				  ADC1_PSSI_R = 0x0008; 
 			    WaitForInterrupt();
 			    if((ADC1_RIS_R & (1<<3)) == (1<<3))
