@@ -1,4 +1,4 @@
-# Race Game README
+# Race Game
 
 ## Introduction
 
