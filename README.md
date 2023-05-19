@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This README file provides an overview of the project, "Race Game," developed by our team using the Tiva C TM4C123GH6PM microcontroller. The game utilizes various features of the microcontroller, including ADC, interrupts, timers, Nokia5110 screen, GPIO driver, and a timer driver. This document aims to provide essential information about the project, its features, setup instructions, and team members.
+Welcome to the Race Game ! This document provides an overview of our project, "Race Game," developed by our  team using the Tiva C TM4C123GH6PM microcontroller. The game takes advantage of various features, including ADC, interrupts, timers, Nokia5110 screen, GPIO driver, and a timer driver. Here, you'll find important information about the project, its exciting features, setup instructions, and details about our dedicated team members.
 
 ## Features
 
