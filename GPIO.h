@@ -10,7 +10,7 @@
 # define STD_LOW      0u /* Physical state 0V */
 #define SET_BIT_PERIPH_BAND(REG,PIN)										((*(volatile uint32_t *)(PERIPH_BIT_BAND_ALIAS + ((uint32_t)(&REG) - PERIPH_BIT_BAND_REGION ) * 32 + PIN *4  )) = STD_HIGH )
 #define CLEAR_BIT_PERIPH_BAND(REG,PIN)									((*(volatile uint32_t *)(PERIPH_BIT_BAND_ALIAS + ((uint32_t)(&REG) - PERIPH_BIT_BAND_REGION ) * 32 + PIN *4  )) = STD_LOW )	
-
+#define SET_BIT_PERIPH_BAND_VAL(REG,VALUE)							((*(volatile uint32_t *)(((uint32_t)(&REG)))) = VALUE )
 
 typedef enum  
 {
