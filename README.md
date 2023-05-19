@@ -60,7 +60,7 @@ The Race Game project was developed by the following team members:
 1. [Ahmed Mohamed Ali](https://github.com/ahmedaliv)
 2. [Ahmed Sayed Saber](https://github.com/ahmed1958)
 3. [Ahmed Mohamed Awaad](https://github.com/Ahmed-Awwad99)
-4. [Mohamed Mamdouh Khalil](https://github.com/mohamedmamdouh22)
+4. [Mohamed Mamdouh Mohamed Khalil](https://github.com/mohamedmamdouh22)
 
 Please feel free to reach out to any of the team members if you have any questions or require further assistance regarding the project.
 
