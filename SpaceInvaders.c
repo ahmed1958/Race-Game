@@ -1,36 +1,4 @@
-// SpaceInvaders.c
-// Runs on LM4F120/TM4C123
-// Jonathan Valvano and Daniel Valvano
-// This is a starter project for the edX Lab 15
-// In order for other students to play your game
-// 1) You must leave the hardware configuration as defined
-// 2) You must not add/remove any files from the project
-// 3) You must add your code only this this C file
-// I.e., if you wish to use code from sprite.c or sound.c, move that code in this file
-// 4) It must compile with the 32k limit of the free Keil
 
-// April 10, 2014
-// http://www.spaceinvaders.de/
-// sounds at http://www.classicgaming.cc/classics/spaceinvaders/sounds.php
-// http://www.classicgaming.cc/classics/spaceinvaders/playguide.php
-/* This example accompanies the books
-   "Embedded Systems: Real Time Interfacing to Arm Cortex M Microcontrollers",
-   ISBN: 978-1463590154, Jonathan Valvano, copyright (c) 2013
-
-   "Embedded Systems: Introduction to Arm Cortex M Microcontrollers",
-   ISBN: 978-1469998749, Jonathan Valvano, copyright (c) 2013
-
- Copyright 2014 by Jonathan W. Valvano, valvano@mail.utexas.edu
-    You may use, edit, run or distribute this file
-    as long as the above copyright notice remains
- THIS SOFTWARE IS PROVIDED "AS IS".  NO WARRANTIES, WHETHER EXPRESS, IMPLIED
- OR STATUTORY, INCLUDING, BUT NOT LIMITED TO, IMPLIED WARRANTIES OF
- MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE APPLY TO THIS SOFTWARE.
- VALVANO SHALL NOT, IN ANY CIRCUMSTANCES, BE LIABLE FOR SPECIAL, INCIDENTAL,
- OR CONSEQUENTIAL DAMAGES, FOR ANY REASON WHATSOEVER.
- For more information about my classes, my research, and my books, see
- http://users.ece.utexas.edu/~valvano/
- */
 // ******* Required Hardware I/O connections*******************
 // Slide pot pin 1 connected to ground
 // Slide pot pin 2 connected to PE2/AIN1
@@ -104,40 +72,46 @@
 #define GPIO_PORTF_PCTL_R       (*((volatile unsigned long *)0x4002552C))
 #define SYSCTL_RCGC2_R          (*((volatile unsigned long *)0x400FE108))
 	
-
-
 // Collision macros
 #define DEAD (1)
 #define SAFE (0)
 #define WAITING (2)
-unsigned long ADC0_InSeq3(void);
-void UART_Init(void);
-volatile int adcData;
-void Delay100ms(unsigned long count){unsigned long volatile time;
-  while(count>0){
-    time = 227240;  // 0.1sec at 80 MHz
-   while(time){
-	  	time--;
-    }
-    count--;
-  }
-}
-
-
+// Function Declararions
 void WaitForInterrupt(void);  // low power mode
 void DisableInterrupts(void); // Disable interrupts
 void EnableInterrupts(void);  // Enable interrupts
 void Timer2_Init(unsigned long period);
 void game();
+unsigned long ADC0_InSeq3(void);
+void Draw_Cars();
+int Check_Col();
+// ********************* Variables ***************
 
-unsigned int TimerCount=0;
-unsigned long Semaphore;
-void PortF_Init(void);
-long ypos = 28;
+// External 
+extern GPIO_pins_config_t PORTF_ARR; 
+extern GPIO_pins_config_t PORTb;
+extern Gpt_ConfigType Timer2;
 
-unsigned long SW1,SW2;  // input from PF4,PF0
-char character;
-float ratio =0;
+
+// Internal
+unsigned int TimerCount=0; // used to calc the score 
+long ypos = 28; // for y movement of the car
+float ratio =0; // for adc
+volatile int carPos=0;
+int x=0;
+int rCarWidth=16;
+int rCarHeight=10;
+int game_state=SAFE;
+int yCheck;
+int lives=3;
+int status=0;
+int game_started=0;
+volatile int adcData;
+
+
+
+
+
 
 // *************************** Images ***************************
 const unsigned char rCar[] ={
@@ -161,8 +135,24 @@ const unsigned char BigExplosion1[] = {
  0x00, 0x00, 0x0B, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0E, 0x00, 0x00, 0x00, 0xA0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0B, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x90, 0x00, 0x00, 0x00, 0xE0, 0x00, 0x0A, 0x00, 0x90, 0x00, 0xB0, 0x00, 0x09, 0x00, 0x00, 0x00, 0xFF};
 
+	// Helper Functions
+	void Delay100ms(unsigned long count){unsigned long volatile time;
+  while(count>0){
+    time = 227240;  // 0.1sec at 80 MHz
+   while(time){
+	  	time--;
+    }
+    count--;
+  }
+}
+
+	
+	
+	
+	// ADC Functions
+	
 void ADc1_Init(void){ volatile unsigned long delay;
-	// work on ADC0 , SS3 ,PE2
+	// work on ADC1 , SS3 ,PE1
  		// we work on ADC 1 (IN VEDIO), sequencer 3 (One simple/ trigger) , PE1(AN2) "IN vedio also "	
 		//Enable the ADC clock using the RCGCADC register 
 			SYSCTL_RCGCADC_R |= (1<<1); // Enable ADC module 1
@@ -202,24 +192,35 @@ void ADc1_Init(void){ volatile unsigned long delay;
 		NVIC_EN2_R |=(1<<3);
 
 }
-
-
-// draw opponent cars 
-volatile int carPos=0;
-int x=0;
-
-int rCarWidth=16;
-int rCarHeight=10;
-
-
-// systick timer init/handler
-void SysTick_Init(void)
+// timer handler (draws the cars and checks collosion )
+void Timer2A_Handler(void)
+{	
+	clear_Int(TIMER2,TIMERA);
+	TimerCount++;
+if(game_started==1)
 {
-  NVIC_ST_CTRL_R = 0;               // disable SysTick during setup
-  NVIC_ST_RELOAD_R =  23992399;      // reload value for 300ms  at 80MHz
-  NVIC_ST_CURRENT_R = 0;            // clear current count
- NVIC_ST_CTRL_R |= 0x07;           // enable SysTick with system clock
-}
+ if(status==0)
+ { 
+	if(Check_Col()==DEAD){
+			game_state=DEAD; //
+			   x=0;
+				return;
+		}
+	}
+ else{
+   status=0; 
+ }
+		
+		 if(x>=60){
+			carPos=(carPos+10)%30;
+			}
+			x=(x+3) % 62;
+      Draw_Cars();			
+}}
+
+
+// draw  Cars 
+
 
 void Draw_Cars(){
    	Nokia5110_ClearBuffer();
@@ -232,10 +233,7 @@ void Draw_Cars(){
     Nokia5110_PrintBMP(x, carPos+26, rCar, 0);
     Nokia5110_DisplayBuffer();
 }
-int game_state=SAFE;
-int yCheck;
-int lives=3;
-int status=0;
+// check if there's a collosion
 int Check_Col(){
 	char message[100];
 	yCheck=carPos+(rCarHeight*3);
@@ -262,10 +260,12 @@ int Check_Col(){
 				Delay100ms(10);
 			Nokia5110_Clear();
 		  sprintf(message, "Ooooops!!   collosion!!  You got %d   Lives left ", --lives);
+				// turn on the led
 				GPIO_write_pin(GPIOF,PIN_1,1);
 				Nokia5110_Clear();
 				Nokia5110_OutString(message);
 				Delay100ms(30);
+				// turn it off
 				CLEAR_BIT_PERIPH_BAND(GPIOF->DATA,PIN_1);
 				 status=1;
 			}
@@ -273,33 +273,10 @@ int Check_Col(){
 	return SAFE;
 	
 }
-int ss=0;
 
-void Timer2A_Handler(void)
-{	
-	clear_Int(TIMER2,TIMERA);
-	TimerCount++;
-if(ss==1)
-{
- if(status==0)
- { 
-	if(Check_Col()==DEAD){
-			game_state=DEAD; //
-			   x=0;
-				return;
-		}
-	}
- else{
-   status=0; 
- }
-		
-		 if(x>=60){
-			carPos=(carPos+10)%30;
-			}
-			x=(x+3) % 62;
-      Draw_Cars();			
-}}
 
+// Interrupt Functions 
+// to enable the interrupt for certain  IRQN
 void IntCtrl_EnableIRQ(IRQn_Type interruptIRQn)
 {
 	if(interruptIRQn >= 0)
@@ -307,7 +284,7 @@ void IntCtrl_EnableIRQ(IRQn_Type interruptIRQn)
 			SET_BIT_PERIPH_BAND_VAL(NVIC->ISER[(interruptIRQn)/32],1<<(uint8_t)interruptIRQn % 32);
 	}
 }
-
+ // interrupt init for port b (used for push button)
 void interrupt_init(){
 
 IntCtrl_EnableIRQ(GPIOB_IRQn);    // (h) enable interrupt 10 in NVIC for Port B
@@ -318,7 +295,6 @@ GPIO_PORTB_IBE_R = 0x00;    //     PB4 is not both edges
 GPIO_PORTB_IEV_R = 0x00;    //     PB4 falling edge event
 GPIO_PORTB_ICR_R = 0x10;    // (e) clear flag4
 }
-extern Gpt_ConfigType Timer2;
 void GPIOPortB_Handler(){
 //	NVIC_ST_CTRL_R = 0; 
 	if(GPIO_PORTB_RIS_R & (1 << 4))
@@ -328,13 +304,10 @@ void GPIOPortB_Handler(){
 		  lives=3;
 		 
 		  timer_init(&Timer2);
-      ss=1; 
+      game_started=1; 
 	 }
 
 }	
-extern GPIO_pins_config_t PORTF_ARR; 
-extern GPIO_pins_config_t PORTb;
-
 
 int main(void){
   TExaS_Init(SSI0_Real_Nokia5110_Scope);  // set system clock to 80 MHz
@@ -347,14 +320,18 @@ int main(void){
 	Nokia5110_Init();
   Nokia5110_ClearBuffer();
 	Nokia5110_DisplayBuffer();      // draw buffer
-			
+	// Draw First Message
 	Nokia5110_Clear();		
-	Nokia5110_OutString("Press       The Button If You Wanna Play :)");
- 
+	Nokia5110_SetCursor(3, 1);
+	Nokia5110_OutString("Press");
+	Nokia5110_SetCursor(0, 3);
+	Nokia5110_OutString(" The Button ");
+	Nokia5110_SetCursor(2, 5);
+	Nokia5110_OutString("To Start:)");
 
 	while(1)
 	{	
-	 if(ss==1)
+	 if(game_started==1)
 	 {
     		 
 		if(game_state==SAFE){
@@ -375,9 +352,16 @@ int main(void){
 					Nokia5110_DisplayBuffer();					 		
 						}
 					else{			 
-								ss=0;
-						    Nokia5110_Clear();
-								Nokia5110_OutString("Press       The Button To Play Again :)");
+								game_started=0;
+							Nokia5110_Clear();		
+							Nokia5110_SetCursor(3, 1);
+							Nokia5110_OutString("Press");
+							Nokia5110_SetCursor(0, 2);
+							Nokia5110_OutString(" The Button ");
+							Nokia5110_SetCursor(2, 3);
+							Nokia5110_OutString("To Play ");
+							Nokia5110_SetCursor(2,5);
+							Nokia5110_OutString(" Again:)");
 					}
 				}
 			}
