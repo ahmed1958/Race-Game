@@ -1,0 +1,13 @@
+.\timer.o: Timer.c
+.\timer.o: Timer.h
+.\timer.o: SS.h
+.\timer.o: C:\Keil\ARM\CMSIS\Include\core_cm4.h
+.\timer.o: C:\Keil\ARM\ARMCC\bin\..\include\stdint.h
+.\timer.o: C:\Keil\ARM\CMSIS\Include\core_cmInstr.h
+.\timer.o: C:\Keil\ARM\CMSIS\Include\core_cmFunc.h
+.\timer.o: C:\Keil\ARM\CMSIS\Include\core_cm4_simd.h
+.\timer.o: system_TM4C123.h
+.\timer.o: TM4C123GH6PM11.h
+.\timer.o: GPIO.h
+.\timer.o: GPIO_cnfg.h
+.\timer.o: C:\Keil\ARM\ARMCC\bin\..\include\stdbool.h

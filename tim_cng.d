@@ -1,0 +1,10 @@
+.\tim_cng.o: TIM_cng.c
+.\tim_cng.o: Timer.h
+.\tim_cng.o: SS.h
+.\tim_cng.o: C:\Keil\ARM\CMSIS\Include\core_cm4.h
+.\tim_cng.o: C:\Keil\ARM\ARMCC\bin\..\include\stdint.h
+.\tim_cng.o: C:\Keil\ARM\CMSIS\Include\core_cmInstr.h
+.\tim_cng.o: C:\Keil\ARM\CMSIS\Include\core_cmFunc.h
+.\tim_cng.o: C:\Keil\ARM\CMSIS\Include\core_cm4_simd.h
+.\tim_cng.o: system_TM4C123.h
+.\tim_cng.o: TM4C123GH6PM11.h

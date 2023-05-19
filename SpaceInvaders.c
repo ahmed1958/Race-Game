@@ -113,6 +113,24 @@
 unsigned long ADC0_InSeq3(void);
 void UART_Init(void);
 volatile int adcData;
+unsigned char UART_InChar(void){
+// as part of Lab 11, modify this program to use UART0 instead of UART1
+  while((UART0_FR_R&UART_FR_RXFE) != 0);
+  return((unsigned char)(UART0_DR_R&0xFF));
+}
+unsigned char UART_InCharNonBlocking(void){
+// as part of Lab 11, modify this program to use UART0 instead of UART1
+  if((UART0_FR_R&UART_FR_RXFE) == 0){
+    return((unsigned char)(UART0_DR_R&0xFF));
+  } else{
+    return 0;
+	}
+}
+void UART_OutChar(unsigned char data){
+// as part of Lab 11, modify this program to use UART0 instead of UART1
+  while((UART0_FR_R&UART_FR_TXFF) != 0);
+  UART0_DR_R = data;
+}
 void Delay100ms(unsigned long count){unsigned long volatile time;
   while(count>0){
     time = 227240;  // 0.1sec at 80 MHz
@@ -129,15 +147,30 @@ void DisableInterrupts(void); // Disable interrupts
 void EnableInterrupts(void);  // Enable interrupts
 void Timer2_Init(unsigned long period);
 void game();
+// ********************** Variables **********************
+// external variables 
+extern Gpt_ConfigType Timer2;
+extern GPIO_pins_config_t PORTF_ARR; 
+extern GPIO_pins_config_t PORTb;
 
+// internal vars
 unsigned int TimerCount=0;
 unsigned long Semaphore;
 void PortF_Init(void);
 long ypos = 28;
-
 unsigned long SW1,SW2;  // input from PF4,PF0
 char character;
 float ratio =0;
+volatile int carPos=0;
+int x=0;
+int rCarWidth=16;
+int rCarHeight=10;
+int game_state=SAFE;
+int yCheck;
+int lives=3;
+int status=0;
+int game_started=0;
+
 
 // *************************** Images ***************************
 const unsigned char rCar[] ={
@@ -160,6 +193,9 @@ const unsigned char BigExplosion1[] = {
  0x00, 0x00, 0x00, 0x00, 0x00, 0x90, 0x00, 0x00, 0x00, 0x00, 0x09, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xA9, 0x00, 0x00, 0x00, 0x00, 0x90,
  0x00, 0x00, 0x0B, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0E, 0x00, 0x00, 0x00, 0xA0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0B, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x90, 0x00, 0x00, 0x00, 0xE0, 0x00, 0x0A, 0x00, 0x90, 0x00, 0xB0, 0x00, 0x09, 0x00, 0x00, 0x00, 0xFF};
+
+// decleration of function 
+////////////////////////////////////
 
 void ADC0_Init(void){ volatile unsigned long delay;
 	// work on ADC0 , SS3 ,PE2
@@ -185,15 +221,6 @@ void ADC0_Init(void){ volatile unsigned long delay;
   NVIC_EN2_R |=(1<<3);
 }
 
-
-// draw opponent cars 
-volatile int carPos=0;
-int x=0;
-
-int rCarWidth=16;
-int rCarHeight=10;
-
-
 // systick timer init/handler
 void SysTick_Init(void)
 {
@@ -214,10 +241,7 @@ void Draw_Cars(){
     Nokia5110_PrintBMP(x, carPos+26, rCar, 0);
     Nokia5110_DisplayBuffer();
 }
-int game_state=SAFE;
-int yCheck;
-int lives=3;
-int status=0;
+
 int Check_Col(){
 	char message[100];
 	yCheck=carPos+(rCarHeight*3);
@@ -255,13 +279,12 @@ int Check_Col(){
 	return SAFE;
 	
 }
-int ss=0;
 
 void Timer2A_Handler(void)
 {	
 	clear_Int(TIMER2,TIMERA);
 	TimerCount++;
-if(ss==1)
+if(game_started==1)
 {
  if(status==0)
  { 
@@ -300,9 +323,8 @@ GPIO_PORTB_IBE_R = 0x00;    //     PB4 is not both edges
 GPIO_PORTB_IEV_R = 0x00;    //     PB4 falling edge event
 GPIO_PORTB_ICR_R = 0x10;    // (e) clear flag4
 }
-extern Gpt_ConfigType Timer2;
+
 void GPIOPortB_Handler(){
-//	NVIC_ST_CTRL_R = 0; 
 	if(GPIO_PORTB_RIS_R & (1 << 4))
 	 {
 			GPIO_PORTB_ICR_R = 0x10;	
@@ -310,13 +332,20 @@ void GPIOPortB_Handler(){
 		  lives=3;
 		 
 		  timer_init(&Timer2);
-      ss=1; 
+      game_started=1; 
 	 }
 
 }	
-extern GPIO_pins_config_t PORTF_ARR; 
-extern GPIO_pins_config_t PORTb;
 
+
+unsigned long ADC0_InSeq3(void){  
+	unsigned long result;
+  ADC0_PSSI_R = 0x0008;            // 1) initiate SS3
+  while((ADC0_RIS_R&0x08)==0){};   // 2) wait for conversion done
+  result = ADC0_SSFIFO3_R&0xFFF;   // 3) read result
+  ADC0_ISC_R = 0x0008;             // 4) acknowledge completion
+  return result;
+}
 
 
 int main(void){
@@ -337,11 +366,11 @@ int main(void){
 
 	while(1)
 	{	
-	 if(ss==1)
+	 if(game_started==1)
 	 {
     		 
 		if(game_state==SAFE){
-				//Nokia5110_Clear();
+			    Nokia5110_DisplayBuffer();
 			    adcData = ADC0_SSFIFO3_R&0xFFF;
 					adcData=ADC0_InSeq3();
 					ADC0_ISC_R = 0x0008; 
@@ -349,10 +378,10 @@ int main(void){
 			    ypos = ratio * 48;
 			    Nokia5110_PrintBMP(68,ypos , rCar, 0);
 			    WaitForInterrupt();	
-					Nokia5110_DisplayBuffer();					 		
+					Nokia5110_DisplayBuffer();
 						}
 					else{			 
-								ss=0;
+								game_started=0;
 						    Nokia5110_Clear();
 								Nokia5110_OutString("Press       The Button To Play Again :)");
 					}
@@ -360,43 +389,7 @@ int main(void){
 			}
 		}
 
-void PortF_Init(void){ volatile unsigned long delay;
-  SYSCTL_RCGC2_R |= 0x00000020;     // 1) F clock
-  delay = SYSCTL_RCGC2_R;           // delay   
-  GPIO_PORTF_LOCK_R = 0x4C4F434B;   // 2) unlock PortF PF0  
-  GPIO_PORTF_CR_R = 0x1F;           // allow changes to PF4-0       
-  GPIO_PORTF_AMSEL_R = 0x00;        // 3) disable analog function
-  GPIO_PORTF_PCTL_R = 0x00000000;   // 4) GPIO clear bit PCTL  
-  GPIO_PORTF_DIR_R = 0x0E;          // 5) PF4,PF0 input, PF3,PF2,PF1 output   
-  GPIO_PORTF_AFSEL_R = 0x00;        // 6) no alternate function
-  GPIO_PORTF_PUR_R = 0x11;          // enable pullup resistors on PF4,PF0       
-  GPIO_PORTF_DEN_R = 0x1F;          // 7) enable digital pins PF4-PF0        
-}
 
-void UART_Init(void){
-// as part of Lab 11, modify this program to use UART0 instead of UART1
-//                 switching from PC5,PC4 to PA1,PA0
-  SYSCTL_RCGC1_R |= SYSCTL_RCGC1_UART0; // activate UART0
-  SYSCTL_RCGC2_R |= SYSCTL_RCGC2_GPIOA; // activate port A
-  UART0_CTL_R &= ~UART_CTL_UARTEN;      // disable UART
-  UART0_IBRD_R = 43;                    // IBRD = int(80,000,000 / (16 * 115200)) = int(43.402778)
-  UART0_FBRD_R = 26;                    // FBRD = round(0.402778 * 64) = 26
-                                        // 8 bit word length (no parity bits, one stop bit, FIFOs)
-  UART0_LCRH_R = (UART_LCRH_WLEN_8|UART_LCRH_FEN);
-  UART0_CTL_R |= UART_CTL_UARTEN;       // enable UART
-  GPIO_PORTA_AFSEL_R |= 0x03;           // enable alt funct on PA1,PA0
-  GPIO_PORTA_DEN_R |= 0x03;             // enable digital I/O on PA1,PA0
-                                        // configure PA1,PA0 as UART0
-  GPIO_PORTA_PCTL_R = (GPIO_PORTA_PCTL_R&0xFFFFFF00)+0x00000011;
-  GPIO_PORTA_AMSEL_R &= ~0x03;          // disable analog functionality on PA1,PA0
-}
 
-unsigned long ADC0_InSeq3(void){  
-	unsigned long result;
-  ADC0_PSSI_R = 0x0008;            // 1) initiate SS3
-  while((ADC0_RIS_R&0x08)==0){};   // 2) wait for conversion done
-  result = ADC0_SSFIFO3_R&0xFFF;   // 3) read result
-  ADC0_ISC_R = 0x0008;             // 4) acknowledge completion
-  return result;
-}
+
 

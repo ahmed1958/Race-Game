@@ -1,6 +1,5 @@
 .\spaceinvaders.o: SpaceInvaders.c
-.\spaceinvaders.o: GPIO.h
-.\spaceinvaders.o: GPIO_cnfg.h
+.\spaceinvaders.o: Timer.h
 .\spaceinvaders.o: SS.h
 .\spaceinvaders.o: C:\Keil\ARM\CMSIS\Include\core_cm4.h
 .\spaceinvaders.o: C:\Keil\ARM\ARMCC\bin\..\include\stdint.h
@@ -9,6 +8,8 @@
 .\spaceinvaders.o: C:\Keil\ARM\CMSIS\Include\core_cm4_simd.h
 .\spaceinvaders.o: system_TM4C123.h
 .\spaceinvaders.o: TM4C123GH6PM11.h
+.\spaceinvaders.o: GPIO.h
+.\spaceinvaders.o: GPIO_cnfg.h
 .\spaceinvaders.o: GPIO_cnfg.h
 .\spaceinvaders.o: Nokia5110.h
 .\spaceinvaders.o: Random.h
