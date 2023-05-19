@@ -1,6 +1,15 @@
 #include "GPIO.h"
 #include "GPIO_cnfg.h"
-
+GPIO_pins_config_t PORTb=
+{
+    GPIOB,
+		PORT_B,
+		PIN_4,
+		INPUT,
+		GPIO,
+		PULL_UP,
+		DIGITAL
+};
 
 GPIO_pins_config_t PORTF_ARR[8]=
 {
@@ -41,7 +50,7 @@ GPIO_pins_config_t PORTF_ARR[8]=
 		PIN_4,
 		INPUT,
 		GPIO,
-		PULL_DOWN,
+		PULL_UP,
 		DIGITAL},
 		
 		{GPIOF,
