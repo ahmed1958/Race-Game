@@ -342,8 +342,6 @@ int main(void){
     		 
 		if(game_state==SAFE){
 				//Nokia5110_Clear();
-			 	  Nokia5110_PrintBMP(68,ypos , rCar, 0); 
-			    Nokia5110_DisplayBuffer();
 			    adcData = ADC0_SSFIFO3_R&0xFFF;
 					adcData=ADC0_InSeq3();
 					ADC0_ISC_R = 0x0008; 
