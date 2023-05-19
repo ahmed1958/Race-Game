@@ -113,24 +113,6 @@
 unsigned long ADC0_InSeq3(void);
 void UART_Init(void);
 volatile int adcData;
-unsigned char UART_InChar(void){
-// as part of Lab 11, modify this program to use UART0 instead of UART1
-  while((UART0_FR_R&UART_FR_RXFE) != 0);
-  return((unsigned char)(UART0_DR_R&0xFF));
-}
-unsigned char UART_InCharNonBlocking(void){
-// as part of Lab 11, modify this program to use UART0 instead of UART1
-  if((UART0_FR_R&UART_FR_RXFE) == 0){
-    return((unsigned char)(UART0_DR_R&0xFF));
-  } else{
-    return 0;
-	}
-}
-void UART_OutChar(unsigned char data){
-// as part of Lab 11, modify this program to use UART0 instead of UART1
-  while((UART0_FR_R&UART_FR_TXFF) != 0);
-  UART0_DR_R = data;
-}
 void Delay100ms(unsigned long count){unsigned long volatile time;
   while(count>0){
     time = 227240;  // 0.1sec at 80 MHz
@@ -179,47 +161,6 @@ const unsigned char BigExplosion1[] = {
  0x00, 0x00, 0x0B, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0E, 0x00, 0x00, 0x00, 0xA0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0B, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x90, 0x00, 0x00, 0x00, 0xE0, 0x00, 0x0A, 0x00, 0x90, 0x00, 0xB0, 0x00, 0x09, 0x00, 0x00, 0x00, 0xFF};
 
-// decleration of function 
-////////////////////////////////////
-/*void ADC_Init(void){
-// we work on ADC 1 (IN VEDIO), sequencer 3 (One simple/ trigger) , PE1(AN2) "IN vedio also "	
- int delay;
-//Enable the ADC clock using the RCGCADC register 
-  SYSCTL_RCGCADC_R |= (1<<0); // Enable ADC module 1
-
-
-//Enable the clock to the appropriate GPIO modules via the RCGCGPIO register
- SYSCTL_RCGCGPIO_R |=(1<<4)//Enable port E // Enable port F 
-                   |(1<<5);
-	delay=SYSCTL_RCGCGPIO_R;
-//Set the GPIO AFSEL for PORT E --> enable alternative function PE1
-  GPIO_PORTE_AFSEL_R |= (1<<0);
-
-// Clear the GPIO_DEN register == Disable digital functionality for PE1
-   GPIO_PORTE_DEN_R &= ~(1<<0);
- 
-// SET the GPIO_AMSEL Register == Enable analog functionality for PE1
-   GPIO_PORTE_AMSEL_R |= (1<<0);
-//------------------------------------------------------------config of sequencer------------------------------------
-//Sample Sequencer 3 is disabled.
-ADC1_ACTSS_R &= ~(1<<3);
-
-// Sample Sequencer 3 is Always running (continuously sample)
-// We shift to bit 12 to select SS3 what we work on
-ADC1_EMUX_R = (0xf<<12);
-
-//Sample Sequencer 3 reads from AIN2(PE1)
-  ADC1_SSMUX3_R= 2;
-
-ADC1_SSCTL3_R |= (1<< 1)// End bit must be set 
-                | (1<< 2); // Enable interuput for SS3 
-
-//Enable interrupt Mask for SS3 
-ADC1_IM_R |= (1<<3);
-ADC1_RIS_R |= (1<<3);
-ADC1_ACTSS_R |= (1<<3);
-NVIC_EN2_R |=(1<<3);
-}	*/	
 void ADC0_Init(void){ volatile unsigned long delay;
 	// work on ADC0 , SS3 ,PE2
   SYSCTL_RCGC2_R |= 0x00000010;   // 1) activate clock for Port E
@@ -340,21 +281,31 @@ if(ss==1)
 			x=(x+3) % 62;
       Draw_Cars();			
 }}
+
+void IntCtrl_EnableIRQ(IRQn_Type interruptIRQn)
+{
+	if(interruptIRQn >= 0)
+	{
+			SET_BIT_PERIPH_BAND_VAL(NVIC->ISER[(interruptIRQn)/32],1<<(uint8_t)interruptIRQn % 32);
+	}
+}
+
 void interrupt_init(){
-	NVIC_PRI7_R = (NVIC_PRI7_R & 0xFF00FFFF) | 0x00000000; // priority 0
-	 NVIC_EN0_R = 0x40000000;      // (h) enable interrupt 30 in NVIC
-	GPIO_PORTF_IM_R |= 0x11;      // (f) arm interrupt on PF4
-	GPIO_PORTF_IS_R = 0x00;     // (d) PF4 is edge-sensitive
-  GPIO_PORTF_IBE_R = 0x00;    //     PF4 is not both edges
-  GPIO_PORTF_IEV_R = 0x00;    //     PF4 falling edge event
-  GPIO_PORTF_ICR_R = 0x11;      // (e) clear flag4
+
+IntCtrl_EnableIRQ(GPIOB_IRQn);    // (h) enable interrupt 10 in NVIC for Port B
+
+GPIO_PORTB_IM_R |= 0x10;    // (f) arm interrupt on PB4
+GPIO_PORTB_IS_R = 0x00;     // (d) PB4 is edge-sensitive
+GPIO_PORTB_IBE_R = 0x00;    //     PB4 is not both edges
+GPIO_PORTB_IEV_R = 0x00;    //     PB4 falling edge event
+GPIO_PORTB_ICR_R = 0x10;    // (e) clear flag4
 }
 extern Gpt_ConfigType Timer2;
-void GPIOPortF_Handler(){
-	NVIC_ST_CTRL_R = 0; 
-	if(GPIO_PORTF_RIS_R & (1 << 4))
+void GPIOPortB_Handler(){
+//	NVIC_ST_CTRL_R = 0; 
+	if(GPIO_PORTB_RIS_R & (1 << 4))
 	 {
-    GPIO_PORTF_ICR_R = 0x10;	
+			GPIO_PORTB_ICR_R = 0x10;	
 		 	game_state=SAFE;
 		  lives=3;
 		 
@@ -364,7 +315,7 @@ void GPIOPortF_Handler(){
 
 }	
 extern GPIO_pins_config_t PORTF_ARR; 
-
+extern GPIO_pins_config_t PORTb;
 
 
 
@@ -372,6 +323,7 @@ int main(void){
   TExaS_Init(SSI0_Real_Nokia5110_Scope);  // set system clock to 80 MHz
 	EnableInterrupts();  
 	Game_init(&PORTF_ARR);
+	GPIO_init(&PORTb);
 	interrupt_init();
   Random_Init(1);
   ADC0_Init();
@@ -399,23 +351,7 @@ int main(void){
 			    ypos = ratio * 48;
 			    Nokia5110_PrintBMP(68,ypos , rCar, 0);
 			    WaitForInterrupt();	
-					Nokia5110_DisplayBuffer();
-       //							character = UART_InChar();
-							//UART_OutChar(character); 
-						// if(character == 'a'){
-								//	ypos = ypos + 1;
-									//if(ypos >=47) {	
-								//		ypos = 47;
-								//	}
-							//}
-						//else if(character== 'b'){
-							//		ypos = ypos - 1;
-								//	if(ypos <= 9) {
-								//			ypos = 9;
-								//	}
-							//}
-						//Nokia5110_ClearBuffer();
-						 		
+					Nokia5110_DisplayBuffer();					 		
 						}
 					else{			 
 								ss=0;
