@@ -21,6 +21,11 @@ void Game_init( GPIO_pins_config_t * totalConfig)
 
 return_type GPIO_init( GPIO_pins_config_t * totalConfig)
 {
+	SET_BIT_PERIPH_BAND(SYSCTL->RCGCGPIO , (totalConfig->portNum));
+	  SET_BIT_PERIPH_BAND(SYSCTL->RCGC2 , (totalConfig->portNum));
+	 delay = 0;
+	 totalConfig->GPIOx->LOCK = 0x4C4F434B;
+	 totalConfig->GPIOx->CR=0xff;
 	switch(totalConfig->pinDirection)
 	{
 		case INPUT:
